@@ -1,6 +1,7 @@
 # WpfApp1
 
-간단한 WPF 데모 애플리케이션입니다. MVVM 패턴을 사용하며 고객/비디오/대여 관련 기본 모델과 ViewModel, View를 포함합니다.
+간단한 WPF 데모 애플리케이션입니다. 
+MVVM 패턴을 사용하며 고객/비디오/대여 관련 기본 모델과 ViewModel, View를 포함합니다.
 
 ## 주요 정보
 - 플랫폼: Windows (WPF)
@@ -8,8 +9,8 @@
 - 패턴: MVVM (Models / ViewModels / Views)
 
 ## 실행 예시 (스크린샷)
-![메인 윈도우](docs/images/customer.png)
-![실행 중](docs/images/dashboard.png)
+![메인 대시보드](docs/images/dashboard.png)
+![고객 관리 화면](docs/images/customer.png)
 ![비디오/대여 화면](docs/images/video_rent.png)
 
 ## 기능
