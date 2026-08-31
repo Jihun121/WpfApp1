@@ -8,15 +8,37 @@
 - 프로젝트 구조: MVVM (Models / ViewModels / Views)
 
 ## 스크린샷
-스크린샷은 리포지토리의 docs/images 또는 assets/images 같은 폴더에 업로드하세요. 예:
+스크린샷은 리포지토리의 docs/images 폴더에 업로드하세요. 예:
 
 ![앱 스크린샷](docs/images/screenshot.png)
 
-스크린샷을 추가하려면:
-1. 프로젝트 루트에 `docs/images/` 폴더를 만들고 이미지를 넣습니다.
-2. README에서 상대 경로로 참조합니다: `![설명](docs/images/파일명.png)`
+스크린샷 추가 가이드
+- 권장 스크린샷
+  - `screenshot-mainwindow.png` : 애플리케이션 메인 윈도우
+  - `screenshot-running.png` : 실행 중 상태(데이터 목록 등)
+  - `screenshot-build.png` : 빌드 성공/출력(터미널 또는 Visual Studio 빌드 출력)
 
-> 참고: 스크린샷은 사용자가 직접 찍어 올리시면 됩니다. 이미지 파일은 저장소 용량을 고려해 최적화(png/jpg, 적절한 해상도)하세요.
+  실제 업로드된 파일 이름 예시:
+  - `customer.png` : 애플리케이션 메인 윈도우
+  - `dashboard.png` : 실행 중 상태(데이터 목록 등)
+  - `video_rent.png` : 비디오 대여 관련 화면
+
+- 추가 방법
+  1. 프로젝트 루트에 `docs/images/` 폴더를 만들고 이미지 파일을 넣습니다.
+  2. README에서 상대 경로로 참조합니다: `![설명](docs/images/파일명.png)`
+
+- 예시 마크다운
+
+	![메인 윈도우](docs/images/customer.png)
+  ![실행 중](docs/images/dashboard.png)
+  ![빌드 출력](docs/images/video_rent.png)
+
+- 권장 포맷 및 최적화
+  - 포맷: PNG 또는 JPG
+  - 해상도: 적당히 축소(예: 1280×720 이하)하여 저장소 용량을 절약
+  - 파일 이름은 소문자와 하이픈(-)으로 통일
+
+참고: 이 저장소에 기본 placeholder 이미지를 추가했습니다(`docs/images/screenshot_placeholder.svg`). 실제 스크린샷으로 교체하시면 됩니다.
 
 ## 기능
 - 고객 목록 및 간단 데이터 모델
