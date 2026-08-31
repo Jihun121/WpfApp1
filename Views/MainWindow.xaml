@@ -1,0 +1,765 @@
+﻿<Window x:Class="WpfApp1.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfApp1"
+        xmlns:vm="clr-namespace:WpfApp1.ViewModels"
+        xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+        mc:Ignorable="d"
+        Title="CRM 고객 등록" 
+        Height="550" Width="950"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize">
+
+    <!-- 뷰모델의 IsLoading(bool) 값을 화면의 숨김/보임(Visibility) 속성으로 변환하기 위해 -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <!-- 전체 화면을 가로로 2분할 -->
+    <Grid>
+        <!-- 화면을 가로로 분할하기 위해 최상단을 Grid로 변경 -->
+        <!-- 기존 레이아웃이 화면 꽉 차게 렌더링되도록, 사이드바 폭(40)만큼 왼쪽 여백을 주어 글자가 가려지지 않게 함 -->
+        <Grid Margin="50,10,10,10">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <!-- 기본값을 Collapsed로 숨겨두고, 본인 차례일 때만 보이도록 단순화 -->
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding CurrentView}" Value="Customer">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300"/>
+                <!-- 왼쪽: 입력 폼 영역 -->
+                <ColumnDefinition Width="*"/>
+                <!-- 오른쪽: DataGrid 영역 (남은 공간 모두 차지) -->
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="10">
+                <!-- 
+                  UpdateSourceTrigger=PropertyChanged: 
+                  포커스를 잃을 때가 아니라, '키보드를 한 글자 칠 때마다' 즉시 ViewModel로 데이터를 보냄 
+                -->
+                <StackPanel Margin="0,0,0,15">
+                    <TextBlock Text="고객 이름" Margin="0,0,0,5" />
+                    <TextBox x:Name="NameTextBox" 
+                             Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}" 
+                             Padding="5" />
+
+                    <!-- NameTextBox에 에러가 발생하면 "이름을 입력하세요" 문구를 띄우는 TextBlock -->
+                    <TextBlock Foreground="Red" Margin="2,2,0,0" FontSize="11" FontWeight="Bold">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <!-- ElementName을 NameTextBox로 맞춰서 이 텍스트박스의 에러만 감지하도록 연결 -->
+                                    <DataTrigger Binding="{Binding ElementName=NameTextBox, Path=(Validation.HasError)}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Setter Property="Text" Value="{Binding ElementName=NameTextBox, Path=(Validation.Errors)[0].ErrorContent}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- 
+                  TextBox와 에러 메시지를 가로(옆)로 나란히 배치하기 위해 
+                  Orientation="Horizontal" 속성을 가진 StackPanel로 감싸줍니다. 
+                -->
+                <StackPanel Margin="0,0,0,15">
+                    <TextBlock Text="연락처" Margin="0,0,0,5" />
+                    <!-- 
+                      1. x:Name="PhoneTextBox" 추가 
+                      옆에 있는 TextBlock이 이 TextBox의 에러 상태를 참조할 수 있도록 이름을 지어줍니다.
+                    -->
+                    <TextBox x:Name="PhoneTextBox" 
+                             Text="{Binding PhoneNumber, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}" 
+                             Padding="5" />
+                    <!-- 
+                      2. 에러 메시지 출력용 TextBlock 추가 
+                      텍스트박스 옆에 에러 내용을 직접 표시
+                    -->
+                    <TextBlock Foreground="Red" Margin="2,2,0,0" FontSize="11" FontWeight="Bold">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <!-- 기본 상태: 에러가 없을 때는 화면에서 공간을 차지하지 않도록 숨김(Collapsed) 처리 -->
+                                <Setter Property="Visibility" Value="Collapsed"/>
+
+                                <!-- 조건부 상태: PhoneTextBox에 에러가 발생했을 때만 발동하는 트리거 -->
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=PhoneTextBox, Path=(Validation.HasError)}" Value="True">
+                                        <!-- 에러가 있으면 화면에 표시(Visible)하고, 에러 메시지(ErrorContent)를 Text로 가져와 출력함 -->
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Setter Property="Text" Value="{Binding ElementName=PhoneTextBox, Path=(Validation.Errors)[0].ErrorContent}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- 이메일 입력란 -->
+                <StackPanel Margin="0,0,0,15">
+                    <TextBlock Text="이메일 (선택)" Margin="0,0,0,5" />
+                    <TextBox x:Name="EmailTextBox" 
+                             Text="{Binding Email, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}" 
+                             Padding="5" />
+
+                    <!-- 이메일 에러 메시지 텍스트블록 -->
+                    <TextBlock Foreground="Red" Margin="2,2,0,0" FontSize="11" FontWeight="Bold">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=EmailTextBox, Path=(Validation.HasError)}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Setter Property="Text" Value="{Binding ElementName=EmailTextBox, Path=(Validation.Errors)[0].ErrorContent}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- 고객 등급 선택란 -->
+                <TextBlock Text="고객 등급" Margin="0,0,0,5" />
+
+                <TextBox Text="{Binding CustomerGrade}" 
+                         IsReadOnly="True" 
+                         Background="#EEEEEE" 
+                         Foreground="Gray" 
+                         Padding="5"/>
+
+                <!-- 
+                  Click 이벤트 대신 Command 사용: 
+                  ViewModel의 SaveCommand 로직이 실행되며, CanExecute 조건에 따라 알아서 회색(비활성화) 처리됨 
+                -->
+                <!-- 삭제 버튼이 들어갈 자리를 확보하기 위해 열(Column)을 5개로 세분화하여 비율 배분 -->
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <!-- 0: 초기화 버튼 -->
+                        <ColumnDefinition Width="5"/>
+                        <!-- 1: 여백 -->
+                        <ColumnDefinition Width="*"/>
+                        <!-- 2: 삭제 버튼 -->
+                        <ColumnDefinition Width="5"/>
+                        <!-- 3: 여백 -->
+                        <ColumnDefinition Width="*"/>
+                        <!-- 4: 저장 버튼 -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 1. 초기화 버튼 (신규) -->
+                    <Button Grid.Column="0" Content="초기화" 
+                            Command="{Binding ClearCommand}" 
+                            Padding="10" Background="#9E9E9E" Foreground="White" FontWeight="Bold"/>
+
+                    <!-- 2. 삭제 버튼 (신규 추가) -->
+                    <!-- 디자인 포인트: 위험한 동작임을 인지할 수 있도록 배경색을 눈에 띄는 붉은색(#F44336)으로 설정 -->
+                    <Button Grid.Column="2" Content="삭제" 
+                            Command="{Binding DeleteCommand}" 
+                            Padding="10" Background="#F44336" Foreground="White" FontWeight="Bold"/>
+
+                    <!-- 3. 저장 및 수정 버튼 -->
+                    <Button Grid.Column="4" Content="저장/수정" 
+                            Command="{Binding SaveCommand}" 
+                            Padding="10" Background="#4CAF50" Foreground="White" FontWeight="Bold"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- 오른쪽(Column="1") 영역에 DataGrid 추가 -->
+            <!-- ViewModel의 Customers 컬렉션을 표 형태로 바인딩 -->
+            <Grid Grid.Column="1" Margin="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <!-- 검색창 및 통계 영역 (내용물 크기만큼만 차지) -->
+                    <RowDefinition Height="*"/>
+                    <!-- DataGrid 영역 (나머지 공간 전부 차지) -->
+                </Grid.RowDefinitions>
+
+                <!-- 상단: 검색창 & 통계 대시보드 -->
+                <!-- 변경 이유: 검색창은 좌측, 통계는 우측 끝에 배치하기 위해 Grid 사용 -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+
+                    <Grid.ColumnDefinitions>
+                        <!-- 0번 칸: 검색창이 차지할 공간 (내용물 크기만큼만 할당) -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- 1번 칸: 통계 뷰가 차지할 공간 (나머지 빈 공간을 모두 차지하여 겹침 방지) -->
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 1. 검색창 (좌측, 0번 칸) -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
+                        <TextBlock Text="🔍 고객 검색:" VerticalAlignment="Center" FontWeight="Bold" Margin="0,0,10,0"/>
+                        <TextBox Width="100" Padding="5" 
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+
+                    <!-- 2. 통계 요약 뷰 및 CSV 내보내기 버튼 (우측, 1번 칸) -->
+                    <!-- 변경 이유: 1번 칸 안에서 우측 정렬을 하므로, 창이 아무리 좁아져도 0번 칸(검색창)을 침범하지 못함 -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding TotalCustomerCount, StringFormat='총 고객: {0}명'}" 
+                                   VerticalAlignment="Center" Margin="0,0,15,0" FontWeight="Bold" Foreground="#1976D2"/>
+                        <TextBlock Text="{Binding VipCustomerCount, StringFormat='VIP 이상: {0}명'}" 
+                                   VerticalAlignment="Center" FontWeight="Bold" Foreground="#E64A19"/>
+
+                        <Button Content="엑셀 파일로 저장" 
+                                Command="{Binding ExportCsvCommand}" 
+                                Margin="15,0,0,0" Padding="10,5" 
+                                Background="#2196F3" Foreground="White" />
+                    </StackPanel>
+
+                </Grid>
+
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Customers}" 
+                          SelectedItem="{Binding SelectedCustomer}" 
+                          AutoGenerateColumns="False" 
+                          IsReadOnly="True" 
+                          AlternatingRowBackground="#F5F5F5" 
+                          HeadersVisibility="Column">
+
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="NO" Binding="{Binding CustomerId}" Width="30"/>
+                        <DataGridTextColumn Header="이름" Binding="{Binding CustomerName}" Width="60"/>
+                        <DataGridTextColumn Header="연락처" Binding="{Binding DisplayPhoneNumber}" Width="120"/>
+                        <DataGridTextColumn Header="이메일" Binding="{Binding Email}" Width="*"/>
+                        <DataGridTextColumn Header="등록일" Binding="{Binding CreatedDate}" Width="80"/>
+                        <DataGridTextColumn Header="대여 횟수" Binding="{Binding TotalRentals, StringFormat='{}{0}회'}" Width="60">
+                            <DataGridTextColumn.ElementStyle>
+                                <!-- 숫자를 가운데 정렬하고 굵게(Bold) 처리하여 단골 고객 식별 가독성 향상 -->
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Foreground" Value="#2980B9"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="등급" Binding="{Binding CustomerGrade}" Width="70">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <!-- 조건에 맞지 않을 때(BRONZE)의 기본 색상 -->
+                                    <Setter Property="Foreground" Value="Brown"/>
+
+                                    <Style.Triggers>
+                                        <!-- 등급이 VIP일 때 (보라색) -->
+                                        <DataTrigger Binding="{Binding CustomerGrade}" Value="VIP">
+                                            <Setter Property="Foreground" Value="#8E44AD"/>
+                                        </DataTrigger>
+                                        <!-- 등급이 GOLD일 때 (금색/주황색) -->
+                                        <DataTrigger Binding="{Binding CustomerGrade}" Value="GOLD">
+                                            <Setter Property="Foreground" Value="Gold"/>
+                                        </DataTrigger>
+                                        <!-- 등급이 SILVER일 때 (은색/푸른빛) -->
+                                        <DataTrigger Binding="{Binding CustomerGrade}" Value="SILVER">
+                                            <Setter Property="Foreground" Value="Silver"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
+
+        <!-- 통계 대시보드 화면 (IsDashboardVisible이 True일 때 보임) -->
+        <Grid Margin="50,10,10,10">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding CurrentView}" Value="Dashboard">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <!-- 대시보드 내부를 위(카드)와 아래(차트)로 분할 -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <!-- 상단: 요약 카드 영역 -->
+                <RowDefinition Height="*"/>
+                <!-- 하단: 차트 영역 -->
+            </Grid.RowDefinitions>
+
+            <!-- [1. 상단 요약 카드 영역] -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,30,0,30">
+
+                <!-- 카드 1: 전체 고객 -->
+                <Border Background="#2196F3" CornerRadius="10" Width="180" Height="100" Margin="10">
+                    <!-- 둥근 테두리에 그림자 효과를 주어 붕 떠 있는 입체감을 부여 -->
+                    <Border.Effect>
+                        <DropShadowEffect Color="Gray" BlurRadius="10" ShadowDepth="3" Opacity="0.3"/>
+                    </Border.Effect>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="전체 고객" Foreground="White" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding TotalCustomerCount, StringFormat='{}{0} 명'}" Foreground="White" FontSize="32" FontWeight="Bold" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 카드 2: 금일 신규 등록 -->
+                <Border Background="#4CAF50" CornerRadius="10" Width="180" Height="100" Margin="10">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Gray" BlurRadius="10" ShadowDepth="3" Opacity="0.3"/>
+                    </Border.Effect>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="오늘 신규 가입" Foreground="White" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding TodayNewCustomerCount, StringFormat='{}{0} 명'}" Foreground="White" FontSize="32" FontWeight="Bold" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 카드 3: VIP 고객 현황 -->
+                <Border Background="#FF9800" CornerRadius="10" Width="180" Height="100" Margin="10">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Gray" BlurRadius="10" ShadowDepth="3" Opacity="0.3"/>
+                    </Border.Effect>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="VIP 이상 등급" Foreground="White" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding VipCustomerCount, StringFormat='{}{0} 명'}" Foreground="White" FontSize="32" FontWeight="Bold" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+
+            <!-- [2. 하단 차트 영역] -->
+            <Grid Grid.Row="1" Margin="0,20,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <!-- 막대 차트 공간 -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- 선 차트 공간 -->
+                </Grid.ColumnDefinitions>
+
+                <!-- 좌측: 고객 등급 분포 (막대 차트) -->
+                <Grid Grid.Column="0" Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="📊 고객 등급 분포" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" HorizontalAlignment="Center"/>
+                    <lvc:CartesianChart Grid.Row="1" Series="{Binding GradeSeries}" LegendLocation="None" DataTooltip="{x:Null}">
+
+                        <lvc:CartesianChart.AxisX>
+                            <lvc:Axis Labels="{Binding GradeLabels}" FontSize="12" FontWeight="Bold">
+                                <!-- X축 공간이 좁아도 VIP, GOLD 등 라벨을 건너뛰지 않고 무조건 다(Step=1) 출력하도록 강제함 -->
+                                <lvc:Axis.Separator>
+                                    <lvc:Separator Step="1" />
+                                </lvc:Axis.Separator>
+                            </lvc:Axis>
+                        </lvc:CartesianChart.AxisX>
+
+                        <lvc:CartesianChart.AxisY>
+                            <lvc:Axis Title="인원 수" MinValue="0">
+                                <!-- 인원수에는 '1.5명' 같은 소수점이 없으므로 Y축 눈금도 1단위로 고정함 -->
+                                <lvc:Axis.Separator>
+                                    <lvc:Separator Step="1" />
+                                </lvc:Axis.Separator>
+                            </lvc:Axis>
+                        </lvc:CartesianChart.AxisY>
+
+                    </lvc:CartesianChart>
+                </Grid>
+
+                <!-- 우측: 최근 7일 비디오 대여 추이 (선 차트) -->
+                <Grid Grid.Column="1" Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="📈 일간 비디오 대여 트렌드" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" HorizontalAlignment="Center"/>
+                    <lvc:CartesianChart Grid.Row="1" Series="{Binding RentalTrendSeries}" LegendLocation="None">
+                        <lvc:CartesianChart.AxisX>
+                            <lvc:Axis Labels="{Binding TrendLabels}" FontSize="12"/>
+                        </lvc:CartesianChart.AxisX>
+                        <lvc:CartesianChart.AxisY>
+                            <lvc:Axis Title="대여 건수" MinValue="0"/>
+                        </lvc:CartesianChart.AxisY>
+                    </lvc:CartesianChart>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- 비디오 관리 화면 -->
+        <Grid Margin="50,10,10,10">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding CurrentView}" Value="Video">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <!-- 이 내부 Grid부터는 데이터 소스를 VideoViewModel로 완전히 교체함 -->
+            <Grid>
+                <Grid.DataContext>
+                    <!-- xmlns:vm="clr-namespace:MyApp.ViewModels" 가 상단 Window 태그에 선언되어 있어야 함 -->
+                    <vm:VideoViewModel x:Name="VideoVM" />
+                </Grid.DataContext>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 화면을 1.5:1.2 비율로 나누어 비디오 목록과 대여 폼을 나란히 배치 -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="1.2*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 최상단 대시보드 통계 영역 -->                
+                <!-- Grid.ColumnSpan="2"를 통해 좌/우 공간을 모두 합쳐서 가로로 꽉 차게 덮습니다 -->
+                <Grid Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,10,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Background="#3498DB" CornerRadius="5" Padding="10,5" Margin="0,0,5,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="총 보유:" Foreground="White" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding TotalVideoCount, StringFormat='{}{0}편'}" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Background="#2ECC71" CornerRadius="5" Padding="10,5" Margin="5,0,5,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="대여 중:" Foreground="White" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RentedVideoCount, StringFormat='{}{0}건'}" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Background="#E74C3C" CornerRadius="5" Padding="10,5" Margin="5,0,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="🚨 연체:" Foreground="White" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding OverdueVideoCount, StringFormat='{}{0}건'}" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- [좌측] 비디오 목록 DataGrid -->
+                <GroupBox Grid.Row="1" Grid.Column="0" Header="🎬 보유 비디오 목록" Margin="0,0,10,0" FontSize="14" FontWeight="Bold">
+
+                    <!-- 상단에 입력 폼, 하단에 표를 두기 위해 Grid 행(Row) 분할 -->
+                    <Grid Margin="5">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 비디오 추가/수정 폼 -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="장르:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="Normal" FontSize="12"/>
+                            <TextBox Text="{Binding InputGenre, UpdateSourceTrigger=PropertyChanged}" Width="70" Margin="0,0,10,0" FontSize="12"/>
+
+                            <TextBlock Text="제목:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="Normal" FontSize="12"/>
+                            <TextBox Text="{Binding InputTitle, UpdateSourceTrigger=PropertyChanged}" Width="120" Margin="0,0,10,0" FontSize="12"/>
+
+                            <!-- CRUD 버튼 -->
+                            <Button Content="추가" Command="{Binding AddVideoCommand}" Width="45" Margin="0,0,5,0" Background="#3498DB" Foreground="White" Cursor="Hand"/>
+                            <Button Content="수정" Command="{Binding UpdateVideoCommand}" Width="45" Margin="0,0,5,0" Background="#9B59B6" Foreground="White" Cursor="Hand"/>
+                            <Button Content="삭제" Command="{Binding DeleteVideoCommand}" Width="45" Background="#E74C3C" Foreground="White" Cursor="Hand"/>
+                        </StackPanel>
+
+                        <!-- 1. 신규 실시간 비디오 검색창 -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5,0,10">
+                            <TextBlock Text="🔍 비디오 검색:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="Bold" Foreground="#34495E"/>
+                            <!-- 변경 이유: UpdateSourceTrigger=PropertyChanged를 설정하여, 엔터를 치지 않아도 글자를 입력하는 매 순간(키 입력 이벤트마다) 바인딩된 SearchKeyword를 갱신함 -->
+                            <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}" Width="150" Padding="2" />
+                            <Button Content="엑셀 파일로 저장" 
+                                    Command="{Binding ExportCsvCommand}" 
+                                    Margin="30,0,0,0" Padding="10,5" 
+                                    Background="DarkCyan" Foreground="White" />
+                        </StackPanel>
+
+                        <!-- 선택한 행의 데이터를 뷰모델의 SelectedVideo로 양방향 바인딩하여 우측 폼에 전달 -->
+                        <DataGrid Grid.Row="2" ItemsSource="{Binding Videos}" AutoGenerateColumns="False" 
+                                  IsReadOnly="True" SelectedItem="{Binding SelectedVideo}"
+                                  RowHeight="30" FontSize="12" FontWeight="Normal" Background="White"
+                                  HeadersVisibility="Column">
+                            
+                            <DataGrid.Columns>
+                                <!-- 상태를 텍스트와 동적 색상으로 표시 -->
+                                <!-- ElementStyle을 사용하여 뷰모델에서 넘겨준 StatusColor 값으로 글자색(Foreground)을 바인딩 -->
+                                <DataGridTextColumn Header="상태" Binding="{Binding StatusText}" Width="70">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding StatusColor}"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <DataGridTextColumn Header="NO" Binding="{Binding VideoId}" Width="40"/>
+                                <DataGridTextColumn Header="장르" Binding="{Binding Genre}" Width="70"/>
+                                <DataGridTextColumn Header="비디오 제목" Binding="{Binding Title}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </GroupBox>
+
+                <Grid Grid.Row="1" Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 대여 처리 폼 -->
+                    <GroupBox Grid.Row="0" Header="🤝 대여 등록" Margin="0,0,0,10" FontSize="14" FontWeight="Bold">
+                        <StackPanel Margin="10" TextElement.FontWeight="Normal" TextElement.FontSize="12">
+
+                            <!-- 선택된 비디오 제목 실시간 표시 -->
+                            <TextBlock Text="선택된 비디오:" Margin="0,0,0,5" Foreground="Gray"/>
+                            <TextBlock Text="{Binding SelectedVideo.Title, TargetNullValue='👈 좌측 목록에서 선택해주세요'}" 
+                                       FontSize="16" FontWeight="Bold" Foreground="#2196F3" Margin="0,0,0,20" TextWrapping="Wrap"/>
+
+                            <!-- 고객 선택 콤보박스 -->
+                            <TextBlock Text="대여할 고객 선택:" Margin="0,0,0,5" Foreground="Gray"/>
+                            <!-- 뷰모델에서 불러올 고객 목록(AvailableCustomers)을 연결 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                <ComboBox ItemsSource="{Binding AvailableCustomers}" 
+                                          DisplayMemberPath="CustomerName" 
+                                          SelectedItem="{Binding SelectedCustomer}" 
+                                          IsEditable="True" IsTextSearchEnabled="True" 
+                                          Width="180" Height="30" Padding="5" Margin="0,0,10,0"/>
+
+                                <Button Content="이력 조회" Command="{Binding ShowHistoryCommand}" 
+                                        Width="70" Height="30" Background="#95A5A6" Foreground="White" Cursor="Hand"/>
+                            </StackPanel>
+
+                            <!-- 대여 실행 버튼 -->
+                            <Button Content="대여 완료" Command="{Binding RentVideoCommand}" 
+                                    Background="#4CAF50" Foreground="White" FontWeight="Bold" Height="35" Cursor="Hand"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- 대여 현황 및 반납 처리 폼 -->
+                    <GroupBox Grid.Row="1" Header="📋 현재 대여 현황" Margin="0,0,0,0" FontSize="14" FontWeight="Bold">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <DataGrid Grid.Row="0" ItemsSource="{Binding RentedList}" AutoGenerateColumns="False" 
+                                      IsReadOnly="True" SelectedItem="{Binding SelectedRentedItem}"
+                                      HeadersVisibility="Column" RowHeight="30" FontSize="12" FontWeight="Normal" Background="White" Margin="5">
+
+                                <!-- 행(Row) 스타일과 연체 상태(IsOverdue)에 따른 색상 트리거 -->
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsOverdue}" Value="True">
+                                                <!-- 연체된 항목은 배경을 옅은 붉은색, 글씨를 진한 붉은색과 굵게 강조 -->
+                                                <Setter Property="Background" Value="#FADBD8"/>
+                                                <Setter Property="Foreground" Value="#C0392B"/>
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
+
+                                <DataGrid.Columns>
+                                    <!-- 사용자가 가장 먼저 볼 수 있도록 맨 앞에 상태 컬럼 배치 -->
+                                    <DataGridTextColumn Header="상태" Binding="{Binding StatusText}" Width="45" FontWeight="Bold"/>
+                                    <DataGridTextColumn Header="대여 고객" Binding="{Binding CustomerName}" Width="70"/>
+                                    <DataGridTextColumn Header="비디오 제목" Binding="{Binding VideoTitle}" Width="*"/>
+                                    <DataGridTextColumn Header="대여일" Binding="{Binding RentalDate}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- 선택된 항목의 ReturnDate를 UPDATE하는 커맨드 연결 -->
+                            <Button Grid.Row="1" Content="선택 비디오 반납" Command="{Binding ReturnVideoCommand}" 
+                                    Background="#E74C3C" Foreground="White" FontWeight="Bold" Height="35" Margin="5" Cursor="Hand"/>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+
+                <!-- 로딩 오버레이 화면 -->
+                <!-- IsLoading이 true일 때만 화면 전체를 반투명한 검은색(#40000000)으로 덮고 스피너/메시지 표시 -->
+                <Grid Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Background="#40000000" 
+                      Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                    <Border Background="White" Padding="30,20" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                            CornerRadius="8" BorderBrush="#E0E0E0" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="⏳" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                            <TextBlock Text="데이터베이스 통신 중..." FontSize="14" FontWeight="Bold" Foreground="#34495E" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                
+                <!-- 고객 이력 조회 팝업 (모달) -->
+                <!-- IsHistoryModalOpen 값이 True일 때만 화면에 나타나며, 반투명 배경 위에 하얀색 팝업창을 띄움 -->
+                <Grid Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Background="#60000000" 
+                      Visibility="{Binding IsHistoryModalOpen, Converter={StaticResource BoolToVis}}">
+
+                    <Border Background="White" Margin="100,50" Padding="20" CornerRadius="8" 
+                            BorderBrush="#BDC3C7" BorderThickness="1" MaxWidth="600">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="{Binding SelectedCustomer.CustomerName, StringFormat='📋 {0} 님의 대여 이력'}" 
+                                       FontSize="18" FontWeight="Bold" Foreground="#2C3E50" Margin="0,0,0,15"/>
+
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding CustomerHistoryList}" AutoGenerateColumns="False" 
+                                      IsReadOnly="True" HeadersVisibility="Column" RowHeight="30" Background="White">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="상태" Binding="{Binding StatusText}" Width="80" FontWeight="Bold"/>
+                                    <DataGridTextColumn Header="비디오 제목" Binding="{Binding VideoTitle}" Width="*"/>
+                                    <DataGridTextColumn Header="대여일" Binding="{Binding RentalDate}" Width="90"/>
+                                    <DataGridTextColumn Header="반납일" Binding="{Binding ReturnDateDisplay}" Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- 닫기 버튼 -->
+                            <Button Grid.Row="2" Content="닫기" Command="{Binding CloseHistoryCommand}" 
+                                    Width="100" Height="35" Background="#34495E" Foreground="White" FontWeight="Bold" 
+                                    Margin="0,15,0,0" HorizontalAlignment="Center" Cursor="Hand"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+            </Grid>
+        </Grid>
+
+        <!-- 애니메이션 사이드바 (최상단 레이어, Grid의 왼쪽 끝에 붙음) -->
+        <Border HorizontalAlignment="Left" Background="#2C3E50" ClipToBounds="True">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <!-- 기본 너비 (호버 전) -->
+                    <Setter Property="Width" Value="40"/>
+                    <Style.Triggers>
+                        <!-- 마우스를 올릴 때 충돌 없이 부드럽게 너비를 확장/축소하기 위한 단순화된 트리거 -->
+                        <EventTrigger RoutedEvent="MouseEnter">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Width" To="180" Duration="0:0:0.2"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                        <EventTrigger RoutedEvent="MouseLeave">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Width" To="40" Duration="0:0:0.2"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+
+            <!-- 사이드바 내부 컨텐츠 -->
+            <StackPanel Orientation="Vertical" Margin="10,20,0,0">
+                <TextBlock Text="☰" FontSize="20" Foreground="White" Margin="0,0,0,30"/>
+
+                <!-- 통계 대시보드 메뉴 -->
+                <TextBlock Text="📊 통계 대시보드">
+                    <TextBlock.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowDashboardCommand}"/>
+                    </TextBlock.InputBindings>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#AAB7B8"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Margin" Value="30,0,0,15"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="#64B5F6"/>
+                                </Trigger>
+
+                                <!-- CurrentView가 "Dashboard"일 때만 하얀색으로 켜짐 -->
+                                <DataTrigger Binding="{Binding CurrentView}" Value="Dashboard">
+                                    <Setter Property="Foreground" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- 고객 관리 메뉴 -->
+                <TextBlock Text="👥 고객 관리">
+                    <TextBlock.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowCustomerCommand}"/>
+                    </TextBlock.InputBindings>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <!-- 기본 상태를 선택되지 않은 회색(#AAB7B8)으로 설정하고, 마우스를 올리면 손가락 모양 커서가 나오도록 UX 개선 -->
+                            <Setter Property="Foreground" Value="#AAB7B8"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Margin" Value="30,0,0,15"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+
+                            <Style.Triggers>
+                                <!-- 마우스 Hover : 밝은 파란색으로 변하여 시각적 피드백 제공 -->
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="#64B5F6"/>
+                                </Trigger>
+
+                                <!-- CurrentView가 "Customer"일 때만 하얀색으로 켜짐 -->
+                                <DataTrigger Binding="{Binding CurrentView}" Value="Customer">
+                                    <Setter Property="Foreground" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- 비디오 관리 메뉴 -->
+                <TextBlock Text="🎬 비디오 관리">
+                    <TextBlock.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowVideoCommand}"/>
+                    </TextBlock.InputBindings>
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#AAB7B8"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Margin" Value="30,0,0,0"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="#64B5F6"/>
+                                </Trigger>
+                                <!-- CurrentView가 "Video"일 때 하얀색으로 켜짐 -->
+                                <DataTrigger Binding="{Binding CurrentView}" Value="Video">
+                                    <Setter Property="Foreground" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
